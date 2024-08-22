@@ -28,7 +28,7 @@
 //// 1. memory leak 방지를 위해, shm segment / msg q 할당 해지를 위한 전역 struct를 사용했는데...꼭 global var을 쓰는게 좋은걸까?
 //// 2. global var로 자식 process pid 저장하여 마지막에(shutDown thread) 자식 process 종료시킴
 //// 3. struct garbage code의 재사용성이 떨어짐
-
+//
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
