@@ -1,7 +1,10 @@
 # sysProg-orderProgram
 
 ## WHAT?(명세) : 
-https://github.com/user-attachments/assets/48997085-32f2-49bc-b64f-b0705f2c12ca
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/48997085-32f2-49bc-b64f-b0705f2c12ca">
+</p>
+
 
 
 
