@@ -1,11 +1,11 @@
 # sysProg-orderProgram
 
 ## WHAT?(명세) : 
-![Uploading 스크린샷 2024-08-22 오후 11.21.53.png…]()
+https://github.com/user-attachments/assets/48997085-32f2-49bc-b64f-b0705f2c12ca
 
 
 
-## HOW? :
+## HOW?(code 구현 방식) :
 ### 1. 어떤 자료구조로 상품정보를 저장해야 검색에 용이할까??
 #### => // hash table (unordered_map)사용해서, 주문상품(string) : struct로 저장된 Idx
 
