@@ -1,4 +1,4 @@
-# sysProg-orderProgram
+# sysProg-orderProgram(23-1 사스템프로그래밍 과제 리팩터링)
 
 ## WHAT?(명세) : 
 <p align="center">
