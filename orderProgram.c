@@ -6,7 +6,7 @@
  */
 
 // 1. 어떤 자료구조로 상품정보를 저장해야 검색에 용이할까??
-/// => hash table (unordered_map)사용해서, 주문상품(string) : struct로 저장된 Idx
+/// => '주문상품(string) : struct' 로 저장된 
 
 // 2. 어떤 IPC 기법을 사용? (어떤 목적과 근거로 이러한 IPC 기법을 사용?) 
 // => data transfer 방식 + shared memory 방식
@@ -43,20 +43,16 @@
 #include <errno.h>
 #include <assert.h>
 #include <mqueue.h>
-//#include <cstdlib>
 #include <semaphore.h>
 
 #include "./shm_types.h"
 #include "./msgQueue_protocol.h" 
 
-//#define NAME_LEN 30
 #define NUM_OF_MENU 5
 #define NUM_OF_THREADS 3
 #define NUM_OF_SHM_SEG 2
-//#define MSG_LEN 50
-//#define SHM_FILE "/shm_ipc"
 
-//메모리 할당 해제 대상 저장
+// 메모리 할당 해제 대상 저장
 typedef struct garbage
 {
     int shm_id_orderInfo_for_dealloc;
@@ -67,11 +63,12 @@ typedef struct garbage
     sem_t sems[NUM_OF_THREADS];    
 } garbage;
 
-
+// 
 void menuPrint(const shm_menuInfo_t *menu_list);
 void order_input(char *input_str);
 int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName);
 
+// 
 void* thread_print_order_history(void *);    	//param : FILE *fp
 void* thread_garbage_free(void *);          	//param : const garbage *garbage_collector
 void* thread_shutDown(void *);
