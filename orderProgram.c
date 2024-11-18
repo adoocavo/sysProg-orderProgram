@@ -6,7 +6,7 @@
  */
 
 // 1. 어떤 자료구조로 상품정보를 저장해야 검색에 용이할까??
-/// => '주문상품(string) : struct' 로 저장된 
+/// => struct shm_menuInfo(typedef shm_menuInfo_t) 로 상품 정보 저장 -> 주문받은 메뉴 이름으로 검색 -> 주문 처리
 
 // 2. 어떤 IPC 기법을 사용? (어떤 목적과 근거로 이러한 IPC 기법을 사용?) 
 // => data transfer 방식 + shared memory 방식
@@ -73,15 +73,14 @@ void* thread_print_order_history(void *);    	//param : FILE *fp
 void* thread_garbage_free(void *);          	//param : const garbage *garbage_collector
 void* thread_shutDown(void *);
 
-/** thread_func array 
- *  @note idx 순서대로 
-*/
+// thread_func array 
 void * (*thread_funcs[NUM_OF_THREADS]) (void *) = {
     thread_print_order_history,
     thread_garbage_free,
     thread_shutDown,
 };
 
+// 
 void SIGINT_handler(int);
 
 // global var for shm, msg queue 할당해제
@@ -92,7 +91,7 @@ static sem_t sem_for_print_order_history_thread;
 static sem_t sem_for_garbage_free_thread;
 static sem_t sem_for_shutDown_thread;
 
-// global var for child proc term
+// global var for terminating child proc
 static u_int32_t child_pid;
 
 int main()
@@ -114,7 +113,6 @@ int main()
     attr.mq_maxmsg = MQ_NUM_MSG;                //메세지 큐 파일에 저장될 수 있는 msg 개수
     attr.mq_msgsize = MQ_MSG_SIZE;              //각 msg의 size(default : 8KB)
 
-
     mqd = mq_open(msg_queue_filename, flags, perms, &attr);
     assert(mqd != -1);
     
@@ -130,13 +128,11 @@ int main()
         int shm_id_orderInfo;
         int shm_id_menuInfo;
         
-
         ///1-1. shmget() : shm 생성 후 id 추출(사용권을 받는다)
         shm_id_orderInfo = shmget(SHM_KEY_ORDER, sizeof(shm_orderInfo_t), SHMGET_FLAGS_CREAT);
         assert(shm_id_orderInfo != -1);
         shm_id_menuInfo = shmget(SHM_KEY_ITEM, sizeof(shm_menuInfo_t)*NUM_OF_MENU, SHMGET_FLAGS_CREAT);
         assert(shm_id_menuInfo != -1);
-
 
         //// shm 할당 해제 위함
         garbages_for_dealloc.shm_id_orderInfo_for_dealloc = shm_id_orderInfo;  
@@ -172,10 +168,8 @@ int main()
         ///1. thread 초기 설정 - pthread_t, pthread_attr_t
 
         ///1_1. pthread var 선언
-        ////=> idx 0~3 순서로 watchdog, monitor, disk_serviced, camera_service threads 
         pthread_t tids[NUM_OF_THREADS];               //thread id
         pthread_attr_t attrs[NUM_OF_THREADS];         //thread attributes object
-
     
         ///1_2. attr 설정
         for(int i = 0; i < NUM_OF_THREADS; ++i) 
@@ -222,7 +216,8 @@ int main()
 
         char input_str[MENU_NAME_LEN];
         int mq_retcode;
-        while(1)
+        
+	while(1)
         {
             //메뉴 출력_UI
             menuPrint(shm_addr_menuInfo);
@@ -245,7 +240,6 @@ int main()
             numRead = mq_receive(mqd, (char*)received_msg_buffer, attr.mq_msgsize, &prio_of_msg);   //msg 받기 전까지 block 
             assert(numRead != -1);
 
-
             //수신 처리
             ///1. 주문 성공/실패여부 출력 -> 실패시 continue
             if(!received_msg_buffer->order_result)
@@ -259,9 +253,7 @@ int main()
                 printf("Successful!!\n\n");
                 if((received_msg_buffer->sucess_cnt) >= 3) kill(getpid(), SIGINT);
             }
-
         }
-
     }
 
     /// child proc
@@ -297,6 +289,7 @@ int main()
 
         int sucess_cnt = 0;
         int mq_retcode;
+
         while(1)
         {
             ////1. receive
@@ -307,8 +300,7 @@ int main()
             recv_shm_orderInfo_id = received_msg_buffer->shm_orderInfo_id;
             recv_shm_menuInfo_id  = received_msg_buffer->shm_menuInfo_id;
 
-
-            ////3. 주문 처리 -> shm 수정 + semaphore            
+            ////3. 주문 처리 -> shm 수정         
             shm_menuInfo_t* shm_addr_menuInfo = (shm_menuInfo_t*)shmat(recv_shm_menuInfo_id, NULL, SHMAT_FLAGS_RW);
             assert(shm_addr_menuInfo != (void*)-1);
             shm_orderInfo_t* shm_addr_orderInfo = (shm_orderInfo_t*)shmat(recv_shm_orderInfo_id, NULL, SHMAT_FLAGS_RW);
@@ -322,7 +314,6 @@ int main()
             assert(order_history_fp != NULL);
 
             ///// 주문 살패
-            //if(ordered_menuName_idx == -1 || (shm_addr_menuInfo+ordered_menuName_idx)->menu_count < 0)
             if(ordered_menuName_idx == -1 || (shm_addr_menuInfo+ordered_menuName_idx)->menu_count == 0)
             {
                 //0. parent에 보낼 주문 처리 결과 정보 저장
@@ -335,7 +326,6 @@ int main()
                 
                 //2. close file 
                 fclose(order_history_fp);
-      
             }
 
             ///// 주문 성공
@@ -364,7 +354,6 @@ int main()
     }
     return 0;
 }
-
 
 //메뉴판 출력 - UI
 void menuPrint(const shm_menuInfo_t *menu_list)
@@ -404,7 +393,6 @@ int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName
             targetIdx = i;
             break;
         }
-
     }
 
     return targetIdx;
@@ -459,7 +447,6 @@ void* thread_print_order_history(void* fileName) //order_history_fp_read)
     //fputc('\n', stdout_fp);
     fputs(szBuffer, stdout_fp);
 
-
     //5. free
     free(szBuffer);
     szBuffer = NULL;
@@ -489,7 +476,6 @@ void* thread_garbage_free(void *garbage_collector_ptr)
     //0_2. 
     const garbage *garbage_collector = (const garbage *)garbage_collector_ptr;
 
-
     //0_3. shm 세그먼트 해제
     int shm_retcode;
     shm_retcode = shmctl(garbage_collector->shm_id_menuInfo_for_dealloc, IPC_RMID, NULL);
@@ -513,7 +499,7 @@ void* thread_garbage_free(void *garbage_collector_ptr)
     return NULL;
 }
 
-//
+// 부모, 자식 process 정상 종료
 void* thread_shutDown(void *arg)
 {
     //0. semaphore 초기화 후 thread_print_order_history 로부터 post 대기
@@ -523,13 +509,12 @@ void* thread_shutDown(void *arg)
 
     sem_retcode = sem_wait(&sem_for_shutDown_thread);
     assert(sem_retcode != -1);
-	
-	
+
     //1. child process 종료
     kill(child_pid, SIGKILL);
 
     //2. child process 상태 회수
-	int child_status;
+    int child_status;
     waitpid(-1, &child_status, WNOHANG);
     
     if (WIFSIGNALED(child_status) == 1) 
