@@ -1,13 +1,12 @@
 
 /** 학습내용 
- * 0. (Linux kernel이 동작하는 system 상에서)OS 위에서 동작하는 APP들이, 'Libc/' 
  * 1. Linux IPC 도구의 종류와 특징에 대해 알아보고, 소프트웨어 요구사항에 적합한 IPC 도구를 선택하여 설계/구현하는 방법
  * 2. file 다루기
  * => 리눅스의 추상화 개념 및 주요 기능 동작 방식에 대한 이해도를 높임 -> kernel programming / device driver 재작을 위한 기반을 다짐
  */
 
 // 1. 어떤 자료구조로 상품정보를 저장해야 검색에 용이할까??
-/// => // hash table (unordered_map)사용해서, 주문상품(string) : struct로 저장된 Idx
+/// => hash table (unordered_map)사용해서, 주문상품(string) : struct로 저장된 Idx
 
 // 2. 어떤 IPC 기법을 사용? (어떤 목적과 근거로 이러한 IPC 기법을 사용?) 
 // => data transfer 방식 + shared memory 방식
@@ -73,8 +72,8 @@ void menuPrint(const shm_menuInfo_t *menu_list);
 void order_input(char *input_str);
 int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName);
 
-void* thread_print_order_history(void *);    //param : FILE *fp
-void* thread_garbage_free(void *);          //param : const garbage *garbage_collector
+void* thread_print_order_history(void *);    	//param : FILE *fp
+void* thread_garbage_free(void *);          	//param : const garbage *garbage_collector
 void* thread_shutDown(void *);
 
 /** thread_func array 
@@ -171,8 +170,6 @@ int main()
 
         ///1-4. 주문 기록 저장할 file명 초기화
         strncpy(shm_addr_menuInfo->order_history_fileName, "Order_History.txt", strlen("Order_History.txt"));
-        
-        
         
         //2. 
         ///1. thread 초기 설정 - pthread_t, pthread_attr_t
