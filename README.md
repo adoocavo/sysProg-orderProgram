@@ -10,7 +10,7 @@
 
 ## HOW?(code 구현 방식) :
 ### 1. 어떤 자료구조로 상품정보를 저장해야 검색에 용이할까??
-  #### hash table(unordered_map) 사용 : '주문상품(string) : struct' 
+#### > hash table(unordered_map) 사용 : '주문상품(string) : struct' 
 
 ### 2. 어떤 IPC 기법을 사용? 
   #### data transfer 방식 + shared memory 방식
