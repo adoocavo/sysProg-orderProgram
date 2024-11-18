@@ -37,7 +37,6 @@ typedef struct shm_menuInfo
     char order_history_fileName[MENU_NAME_LEN]; 
 } shm_menuInfo_t;
 
-
 // Defines structure of shared memory segment for Order Info 
 typedef struct shm_orderInfo                                
 {
@@ -45,5 +44,4 @@ typedef struct shm_orderInfo
     char input_menuName[MENU_NAME_LEN];            // 주문받은 메뉴 이름
 } shm_orderInfo_t;
 
-
-#endif /* _SHM_TYPES_H */
+#endif // _SHM_TYPES_H 
