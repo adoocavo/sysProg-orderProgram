@@ -119,9 +119,11 @@ int main()
     //1.  
     int pid = fork();
     assert(pid != -1);
-
+    child_pid = pid;
+	
     /// parent proc  
-    if((child_pid = pid)) 
+    //if((child_pid = pid))
+    if(pid > 0)
     {
         //1. shm mem 생성 + 초기화
         ///+) shm key -> shm id -> shm addr => shm id를 주고받음
