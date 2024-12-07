@@ -214,7 +214,7 @@ int main()
         received_msg_buffer = (msgQ_protocol_cToP_t *)malloc(attr.mq_msgsize);
 
         ///2. send 관련 초기설정
-        msgQ_protocol_pToC_t msg_to_child;
+        msgQ_protocol_pToC_t *msg_to_child;
 
         char input_str[MENU_NAME_LEN];
         int mq_retcode;
@@ -235,7 +235,7 @@ int main()
             msg_to_child.shm_menuInfo_id = shm_id_menuInfo;
         
             //child에게 msg 송신
-            mq_retcode = mq_send(mqd, (const char*)&msg_to_child, sizeof(msg_to_child), 1);
+            mq_retcode = mq_send(mqd, (const char*)msg_to_child, sizeof(*msg_to_child), 1);
             assert(mq_retcode != -1);
 
             //child로부터 msg 수신
@@ -287,7 +287,7 @@ int main()
         received_msg_buffer = (msgQ_protocol_pToC_t *)malloc(attr.mq_msgsize);
 
         //2. send 관련 초기설정
-        msgQ_protocol_cToP_t msg_to_parent;
+        msgQ_protocol_cToP_t *msg_to_parent;
 
         int sucess_cnt = 0;
         int mq_retcode;
@@ -350,7 +350,7 @@ int main()
             }
     
             ////4. 처리 결과 send
-            mq_retcode = mq_send(mqd, (const char*)&msg_to_parent, sizeof(msg_to_parent), 1);
+            mq_retcode = mq_send(mqd, (const char*)msg_to_parent, sizeof(*msg_to_parent), 1);
             assert(mq_retcode != -1);
         }
     }
