@@ -24,8 +24,8 @@
 //// msg queue로 주고받을 data protocol을 struct 로 정의
 
 /// 아쉬운점
-//// 1. memory leak 방지를 위해, shm segment / msg q 할당 해지를 위한 전역 struct를 사용했는데...꼭 global var을 쓰는게 좋은걸까?
-//// 2. global var로 자식 process pid 저장하여 마지막에(shutDown thread) 자식 process 종료시킴
+//// 1. memory leak 방지를 위해, shm segment / msg q 할당 해지를 위한 전역 struct를 사용했는데...꼭 global var을 쓰는게 좋은걸까? => 해결함
+//// 2. global var로 자식 process pid 저장하여 마지막에(shutDown thread) 자식 process 종료시킴 => 해결함
 //// 3. struct garbage code의 재사용성이 떨어짐
 //
 #include <stdio.h>
@@ -66,7 +66,7 @@ typedef struct garbage
 // 
 void menuPrint(const shm_menuInfo_t *menu_list);
 void order_input(char *input_str);
-int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName);
+int get_menu_idx(const shm_menuInfo_t *menu_list, const char *ordered_menuName);
 
 // 
 void* thread_print_order_history(void *);    	//param : FILE *fp
@@ -92,7 +92,11 @@ static sem_t sem_for_garbage_free_thread;
 static sem_t sem_for_shutDown_thread;
 
 // global var for terminating child proc
-static u_int32_t child_pid;
+//static u_int32_t child_pid;
+
+// globar var for determining read file
+//// => 주문목록 파일 생성 여부 확인  
+static u_int8_t num_of_successful_order = 0;
 
 int main()
 {
@@ -119,7 +123,7 @@ int main()
     //1.  
     int pid = fork();
     assert(pid != -1);
-    child_pid = pid;
+    //child_pid = pid;
 	
     /// parent proc  
     //if((child_pid = pid))
@@ -149,23 +153,30 @@ int main()
         ///1-3. 메뉴 정보 초기화	
         srand(time(NULL));          //for menu_count 		
         
-        //// 메뉴 이름 초기화    
-        strncpy(shm_addr_menuInfo->menu_name, "Cold Brew", strlen("Cold Brew"));
-        strncpy((shm_addr_menuInfo+1)->menu_name, "Caffee Latte", strlen("Caffee Latte"));
-        strncpy((shm_addr_menuInfo+2)->menu_name, "Iced Earl Grey tea", strlen("Iced Earl Grey tea"));
-        strncpy((shm_addr_menuInfo+3)->menu_name, "Byul Byul Sandwich", strlen("Byul Byul Sandwich"));
-        strncpy((shm_addr_menuInfo+4)->menu_name, "Ice Americano", strlen("Ice Americano"));
-
+        //// 메뉴 이름 초기화
+        strncpy(shm_addr_menuInfo->menu_name, "Cold Brew", strlen("Cold Brew")+1);
+        strncpy((shm_addr_menuInfo+1)->menu_name, "Caffee Latte", strlen("Caffee Latte")+1);
+        strncpy((shm_addr_menuInfo+2)->menu_name, "Iced Earl Grey tea", strlen("Iced Earl Grey tea")+1);
+        strncpy((shm_addr_menuInfo+3)->menu_name, "Byul Byul Sandwich", strlen("Byul Byul Sandwich")+1);
+        strncpy((shm_addr_menuInfo+4)->menu_name, "Ice Americano", strlen("Ice Americano")+1);
+        
+        /*
+        snprintf(shm_addr_menuInfo->menu_name, MENU_NAME_LEN, "%s", "Cold Brew");
+        snprintf((shm_addr_menuInfo+1)->menu_name, MENU_NAME_LEN, "%s", "Caffee Latte");
+        snprintf((shm_addr_menuInfo+2)->menu_name, MENU_NAME_LEN, "%s", "Iced Earl Grey tea");
+        snprintf((shm_addr_menuInfo+3)->menu_name, MENU_NAME_LEN, "%s", "Byul Byul Sandwich");
+        snprintf((shm_addr_menuInfo+4)->menu_name, MENU_NAME_LEN, "%s", "Ice Americano");
+        */
         //// 메뉴 idx, 수량 초기화
         for(int i = 0; i < NUM_OF_MENU; ++i)
         {
             (shm_addr_menuInfo+i)->menu_num = i;
-            (shm_addr_menuInfo+i)->menu_count = rand()%3;
+            (shm_addr_menuInfo+i)->menu_count = rand()%3 + 1;
         }
 
         ///1-4. 주문 기록 저장할 file명 초기화
-        strncpy(shm_addr_menuInfo->order_history_fileName, "Order_History.txt", strlen("Order_History.txt"));
-        
+        strncpy(shm_addr_menuInfo->order_history_fileName, "Order_History.txt", strlen("Order_History.txt")+1);
+        // snprintf(shm_addr_menuInfo->order_history_fileName, strlen(shm_addr_menuInfo->order_history_fileName)+1, "%s", "Order_History.txt");
         //2. 
         ///1. thread 초기 설정 - pthread_t, pthread_attr_t
 
@@ -206,20 +217,20 @@ int main()
         msgQ_protocol_cToP_t *received_msg_buffer;
         struct mq_attr attr;
         u_int32_t prio_of_msg; 
-        int recv_order_result;
-        int recv_sucess_cnt;
+        // int recv_order_result;
+        // int recv_sucess_cnt;
         ssize_t numRead;
 
         assert(mq_getattr(mqd, &attr) != -1);
         received_msg_buffer = (msgQ_protocol_cToP_t *)malloc(attr.mq_msgsize);
 
         ///2. send 관련 초기설정
-        msgQ_protocol_pToC_t *msg_to_child;
+        msgQ_protocol_pToC_t msg_to_child;
 
         char input_str[MENU_NAME_LEN];
         int mq_retcode;
         
-	while(1)
+	    while(1)
         {
             //메뉴 출력_UI
             menuPrint(shm_addr_menuInfo);
@@ -227,15 +238,18 @@ int main()
             //주문받기_UI
             order_input(input_str);
 
-            //주문받은 정보 shm에 저징 
-            strncpy(shm_addr_orderInfo->input_menuName, input_str, strlen(input_str));
-            
+            //주문받은 정보 shm에 저장
+            // strncpy(shm_addr_orderInfo->input_menuName, input_str, strlen(input_str));
+            strncpy(shm_addr_orderInfo->input_menuName, input_str, strlen(input_str)+1);          // '\0'까지 copy 위해, strlen(input_str + 1)
+            // snprintf(shm_addr_orderInfo->input_menuName, strlen(shm_addr_orderInfo->input_menuName)+1, "%s", input_str);
+
+
             //child에게 보넬 msg 데이터 저장
             msg_to_child.shm_orderInfo_id = shm_id_orderInfo;
             msg_to_child.shm_menuInfo_id = shm_id_menuInfo;
         
             //child에게 msg 송신
-            mq_retcode = mq_send(mqd, (const char*)msg_to_child, sizeof(*msg_to_child), 1);
+            mq_retcode = mq_send(mqd, (const char*)&msg_to_child, sizeof(msgQ_protocol_pToC_t), 1);
             assert(mq_retcode != -1);
 
             //child로부터 msg 수신
@@ -252,8 +266,13 @@ int main()
             ///2. 성공시 누적 주문 성공횟수 확인 -> 3개 넘어갈시 자식 proc 종료
             else
             {
+                num_of_successful_order++;
                 printf("Successful!!\n\n");
-                if((received_msg_buffer->sucess_cnt) >= 3) kill(getpid(), SIGINT);
+                if((received_msg_buffer->sucess_cnt) >= 3) 
+                {
+                    kill(pid, SIGINT);          // child proc
+                    kill(getpid(), SIGINT);     // parent proc
+                }
             }
         }
     }
@@ -261,6 +280,9 @@ int main()
     /// child proc
     else 
     {   
+        //0. SIGINT -> default action 으로 재설정
+        signal(SIGINT, SIG_DFL);
+
         /*
         //0. 주문 내역 기록할 파일 초기설정
         FILE *order_history_fp = fopen("Order_History.txt", "a");
@@ -287,7 +309,7 @@ int main()
         received_msg_buffer = (msgQ_protocol_pToC_t *)malloc(attr.mq_msgsize);
 
         //2. send 관련 초기설정
-        msgQ_protocol_cToP_t *msg_to_parent;
+        msgQ_protocol_cToP_t msg_to_parent;
 
         int sucess_cnt = 0;
         int mq_retcode;
@@ -309,13 +331,13 @@ int main()
             assert(shm_addr_orderInfo != (void*)-1); 
 
             ///// 입력받은 상품 명의 idx 구하기
-            int ordered_menuName_idx = order_process1(shm_addr_menuInfo, shm_addr_orderInfo->input_menuName);
+            int ordered_menuName_idx = get_menu_idx(shm_addr_menuInfo, shm_addr_orderInfo->input_menuName);
             
             ///// 저장할 file open
             FILE *order_history_fp = fopen(shm_addr_menuInfo->order_history_fileName, "a");
             assert(order_history_fp != NULL);
 
-            ///// 주문 살패
+            ///// 주문 실패
             if(ordered_menuName_idx == -1 || (shm_addr_menuInfo+ordered_menuName_idx)->menu_count == 0)
             {
                 //0. parent에 보낼 주문 처리 결과 정보 저장
@@ -350,7 +372,7 @@ int main()
             }
     
             ////4. 처리 결과 send
-            mq_retcode = mq_send(mqd, (const char*)msg_to_parent, sizeof(*msg_to_parent), 1);
+            mq_retcode = mq_send(mqd, (const char*)&msg_to_parent, sizeof(msgQ_protocol_pToC_t), 1);
             assert(mq_retcode != -1);
         }
     }
@@ -377,20 +399,31 @@ void order_input(char *input_str)
     FILE *inputFp = stdin;
 
     printf("Enter a menu : ");
-    fgets(input_str, MENU_NAME_LEN-1, inputFp);
+    fgets(input_str, MENU_NAME_LEN-1, inputFp);         // fgets : 마지막 문자로 '\n' 추가함
 	  
-    input_str[strlen(input_str)-1] = '\0'; 	  
+    input_str[strlen(input_str)-1] = '\0'; 
+
+    /*
+    // log for debug	  
+    printf("\norder_input : %s\n", input_str);
+    */
 }
 
 
 //주문 처리1 - 입력받은 메뉴 이름과 매칭되는 메뉴 idx 찾아서 리턴
-int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName)
+int get_menu_idx(const shm_menuInfo_t *menu_list, const char *ordered_menuName)
 {
     int targetIdx = -1;
 
+    /*
+    // log for debug
+    printf("\nget_menu_idx : %s\n", ordered_menuName);
+    */
+
     for(int i = 0; i < NUM_OF_MENU; ++i)
     {
-        if(!strncmp((menu_list+i)->menu_name, ordered_menuName, MENU_NAME_LEN))
+        //if(!strncmp((menu_list+i)->menu_name, ordered_menuName, MENU_NAME_LEN))
+        if(!strncmp((menu_list+i)->menu_name, ordered_menuName, strlen((menu_list+i)->menu_name)))
         {
             targetIdx = i;
             break;
@@ -402,7 +435,8 @@ int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName
 
 
 // signal handler를 처리하는 process?? => 해당 handler를 등록한 proecss, 그 signal을 받는 process
-/// => 해당 code에서 ctrl + c, 주문 3번 성공시 -> 부모 process가 signal handler 호출하게 만든다. 
+//// => 해당 code에서 ctrl + c -> 부모 / 자식 process가 signal handler 호출하게 만든다.
+//// => 주문 3번 성공시 -> 부모 process가 signal handler 호출하게 만든다. 
 
 // SIGINT handler에서 sem post -> 파일출력 thread wake up  -> 메모리 회수 thread wake up 
 //// 파일출력 thread : 파일출력 -> 메모리 회수 thread wake up
@@ -411,7 +445,7 @@ int order_process1(const shm_menuInfo_t *menu_list, const char *ordered_menuName
 //SIGINT handler
 void SIGINT_handler(int signal)
 {
-    printf("SIGINT_handler success !!\n");
+    printf("\n\nSIGINT_handler success !!\n");
     sem_post(&sem_for_print_order_history_thread);
 }
 
@@ -426,6 +460,10 @@ void* thread_print_order_history(void* fileName) //order_history_fp_read)
     sem_retcode = sem_wait(&sem_for_print_order_history_thread);
     assert(sem_retcode != -1);
     
+    // 파일 생성 여부 확인
+    if(num_of_successful_order <= 0)
+        goto INIT_SEM; 
+
     FILE *stdout_fp = stdout;
     FILE *order_history_fp_read = fopen((const char*)fileName, "r");
 
@@ -448,11 +486,13 @@ void* thread_print_order_history(void* fileName) //order_history_fp_read)
     printf("\n---Your Order History---\n");
     //fputc('\n', stdout_fp);
     fputs(szBuffer, stdout_fp);
+    printf("\n");
 
     //5. free
     free(szBuffer);
     szBuffer = NULL;
 
+INIT_SEM : 
     //6.sem 원복 -> thread_garbage_free post
     sem_retcode = sem_init(&sem_for_print_order_history_thread, 0, 0);
     assert(sem_retcode != -1);
@@ -489,7 +529,7 @@ void* thread_garbage_free(void *garbage_collector_ptr)
     int mq_retcode;
     mq_retcode = mq_unlink(garbage_collector->msg_queue_filename_for_dealloc);
     assert(mq_retcode != -1);
-      
+
     printf("garbage_free success !!\n");
 
     //2. sem 원복 -> shutDown_thread post
@@ -512,22 +552,28 @@ void* thread_shutDown(void *arg)
     sem_retcode = sem_wait(&sem_for_shutDown_thread);
     assert(sem_retcode != -1);
 
+/*
     //1. child process 종료
     kill(child_pid, SIGKILL);
+*/
 
     //2. child process 상태 회수
     int child_status;
-    waitpid(-1, &child_status, WNOHANG);
-    
+    // waitpid(-1, &child_status, WNOHANG);
+    while(waitpid(-1, &child_status, WNOHANG) == 0)
+    {
+        ;
+    }
+
     if (WIFSIGNALED(child_status) == 1) 
     {
-        printf("\nChild process terminated by signal %d\n", WTERMSIG(child_status));
+        printf("Child process terminated by signal %d\n", WTERMSIG(child_status));
     } 
     else
     {
-        printf("\nChild process terminated with exit status %d\n", WEXITSTATUS(child_status));
+        printf("Child process terminated with exit status %d\n", WEXITSTATUS(child_status));
     }
-		    
+
     //3. parent process 종료
     printf("thread_shutDown success !!\n");
 
@@ -536,5 +582,3 @@ void* thread_shutDown(void *arg)
 
     exit(0);
 }
-
-
