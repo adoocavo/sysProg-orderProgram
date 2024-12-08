@@ -493,9 +493,14 @@ void* thread_print_order_history(void* fileName) //order_history_fp_read)
     szBuffer = NULL;
 
 INIT_SEM : 
-    //6.sem 원복 -> thread_garbage_free post
+    //6.sem 종료
+    /*
     sem_retcode = sem_init(&sem_for_print_order_history_thread, 0, 0);
     assert(sem_retcode != -1);
+    */
+    sem_retcode = sem_destroy(&sem_for_print_order_history_thread);
+    assert(sem_retcode != -1);
+
     sem_retcode = sem_post(&sem_for_garbage_free_thread);
     assert(sem_retcode != -1);
 
@@ -530,14 +535,20 @@ void* thread_garbage_free(void *garbage_collector_ptr)
     mq_retcode = mq_unlink(garbage_collector->msg_queue_filename_for_dealloc);
     assert(mq_retcode != -1);
 
-    printf("garbage_free success !!\n");
-
-    //2. sem 원복 -> shutDown_thread post
+    //2. sem 종료
+    /*
     sem_retcode = sem_init(&sem_for_garbage_free_thread, 0, 0);
     assert(sem_retcode != -1);
+    */
+    sem_retcode = sem_destroy(&sem_for_garbage_free_thread);
+    assert(sem_retcode != -1);
+    
     sem_retcode = sem_post(&sem_for_shutDown_thread);
     assert(sem_retcode != -1);
-   
+
+    //3. 
+    printf("garbage_free success !!\n");
+
     return NULL;
 }
 
@@ -574,11 +585,16 @@ void* thread_shutDown(void *arg)
         printf("Child process terminated with exit status %d\n", WEXITSTATUS(child_status));
     }
 
-    //3. parent process 종료
-    printf("thread_shutDown success !!\n");
-
+    // 3. sem 종료
+    /*
     sem_retcode = sem_init(&sem_for_shutDown_thread, 0, 0);
     assert(sem_retcode != -1);
+    */
+    sem_retcode = sem_destroy(&sem_for_shutDown_thread);
+    assert(sem_retcode != -1);
+
+    //4. parent process 종료
+    printf("thread_shutDown success !!\n");
 
     exit(0);
 }
