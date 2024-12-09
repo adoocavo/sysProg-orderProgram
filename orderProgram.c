@@ -51,6 +51,7 @@
 #define NUM_OF_MENU 5
 #define NUM_OF_THREADS 3
 #define NUM_OF_SHM_SEG 2
+#define NUM_OF_MAX_ORDER 3        //3번 주문 성공 -> 종료
 
 // 메모리 할당 해제 대상 저장
 typedef struct garbage
@@ -100,10 +101,7 @@ static u_int8_t num_of_successful_order = 0;
 
 int main()
 {
-    //0_1. SIGINT handler 등록
-    signal(SIGINT, SIGINT_handler);
-
-    //0_2. posix msg queue create (for IPC)
+    //0. posix msg queue create (for IPC)
     char msg_queue_filename[] = "/order_mq";    //메세지 큐 파일이름
     mqd_t mqd;                                  //메세지 큐 파일디스크립터
     
@@ -129,6 +127,9 @@ int main()
     //if((child_pid = pid))
     if(pid > 0)
     {
+        //0. SIGINT handler 등록
+        signal(SIGINT, SIGINT_handler);
+
         //1. shm mem 생성 + 초기화
         ///+) shm key -> shm id -> shm addr => shm id를 주고받음
         int shm_id_orderInfo;
@@ -268,7 +269,7 @@ int main()
             {
                 num_of_successful_order++;
                 printf("Successful!!\n\n");
-                if((received_msg_buffer->sucess_cnt) >= 3) 
+                if((received_msg_buffer->sucess_cnt) >= NUM_OF_MAX_ORDER) 
                 {
                     kill(pid, SIGINT);          // child proc
                     kill(getpid(), SIGINT);     // parent proc
@@ -280,9 +281,10 @@ int main()
     /// child proc
     else 
     {   
+        /*
         //0. SIGINT -> default action 으로 재설정
         signal(SIGINT, SIG_DFL);
-
+        */
         /*
         //0. 주문 내역 기록할 파일 초기설정
         FILE *order_history_fp = fopen("Order_History.txt", "a");
@@ -371,7 +373,14 @@ int main()
                 fclose(order_history_fp);
             }
     
-            ////4. 처리 결과 send
+            ////4. shm detach
+            int shm_retcode;
+            shmdt((void*)shm_addr_menuInfo);
+            assert(shm_retcode != -1);
+            shmdt((void*)shm_addr_orderInfo);
+            assert(shm_retcode != -1);
+
+            ////5. 처리 결과 send
             mq_retcode = mq_send(mqd, (const char*)&msg_to_parent, sizeof(msgQ_protocol_pToC_t), 1);
             assert(mq_retcode != -1);
         }
@@ -509,7 +518,7 @@ INIT_SEM :
 
 
 
-// 메모리, 메세지 큐 할당 해제
+// shm 메모리, 메세지 큐 할당 해제
 void* thread_garbage_free(void *garbage_collector_ptr)
 {  
     //0_1. semaphore 초기화 후 thread_print_order_history 로부터 post 대기
@@ -525,6 +534,10 @@ void* thread_garbage_free(void *garbage_collector_ptr)
 
     //0_3. shm 세그먼트 해제
     int shm_retcode;
+
+    //// 현재 process에서, shm 세그먼트에 대한 attach 해제(detach) : IPC_RMID 
+
+    //// shm 세그먼트 제거
     shm_retcode = shmctl(garbage_collector->shm_id_menuInfo_for_dealloc, IPC_RMID, NULL);
     assert(shm_retcode != -1);
     shm_retcode = shmctl(garbage_collector->shm_id_orderInfo_for_dealloc, IPC_RMID, NULL);
