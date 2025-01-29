@@ -25,7 +25,6 @@ typedef struct msgQ_protocol_pToC
 {
     int shm_orderInfo_id;           // parent에서 주문 정보를 저장한 shm struct의 id 값 저장 
     int shm_menuInfo_id;            // parent에서 재고 정보를 저장한 shm struct의 id 값 저장 
-    //char input_menuName[MENU_NAME_LEN];
 } msgQ_protocol_pToC_t;
 
 
