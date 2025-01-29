@@ -29,6 +29,7 @@ enum def_shm_key
 // Defines structure of shared memory segment for menuInfo 
 typedef struct shm_menuInfo
 {
+    //sem_t sem_for_shm_menuInfo;
     char menu_name[MENU_NAME_LEN];                  // 메뉴 이름
     u_int8_t menu_num;                              // 메뉴 idx     
     u_int8_t menu_count;                            // 메뉴 재고
@@ -39,6 +40,7 @@ typedef struct shm_menuInfo
 // Defines structure of shared memory segment for Order Info 
 typedef struct shm_orderInfo                                
 {
+    //sem_t sem_for_shm_orderInfo;            
     char input_menuName[MENU_NAME_LEN];            // 주문받은 메뉴 이름
 } shm_orderInfo_t;
 
